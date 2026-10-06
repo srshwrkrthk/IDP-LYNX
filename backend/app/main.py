@@ -1,6 +1,12 @@
-from fastapi import FastAPI
+from pathlib import Path
 
+from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from app.api.routes.devices import router as devices_router
 from app.api.routes.auth import router as auth_router
+
+frontend = Path(__file__).resolve().parents[2] / "frontend"
 
 app = FastAPI(
     title="LYNX GATEWAY API",
@@ -8,16 +14,19 @@ app = FastAPI(
     version="0.1.0",
 )
 
+app.include_router(devices_router)
 app.include_router(auth_router)
+app.mount("/static", StaticFiles(directory=frontend), name="static")
 
 
-@app.get("/")
-def root():
-    return {
-        "name": "LYNX",
-        "status": "running",
-        "mode": "software-mock",
-    }
+@app.get("/", include_in_schema=False)
+def login_page():
+    return FileResponse(frontend / "index.html")
+
+
+@app.get("/dashboard", include_in_schema=False)
+def dashboard_page():
+    return FileResponse(frontend / "dashboard.html")
 
 
 @app.get("/health")
