@@ -1,13 +1,14 @@
 import hashlib
 import secrets
+from datetime import datetime, timezone
 
 from app.database import get_supabase_admin
-from app.schemas.device import EndpointCreate
+from app.schemas.device import EndpointCreate, USBEventCreate
 
 
 def register_endpoint(user_id: str, data: EndpointCreate):
     agent_token = secrets.token_urlsafe(32)
-    token_hash = hashlib.sha256(agent_token.encode()).hexdigest()
+    token_hash = hashlib.sha256(agent_token.encode("utf-8")).hexdigest()
 
     response = (
         get_supabase_admin()
@@ -24,7 +25,13 @@ def register_endpoint(user_id: str, data: EndpointCreate):
         .execute()
     )
 
-    return response.data[0], agent_token
+    if not response.data:
+        raise RuntimeError("Endpoint registration failed")
+
+    endpoint = response.data[0]
+    endpoint.pop("agent_token_hash", None)
+
+    return endpoint, agent_token
 
 
 def list_endpoints(user_id: str):
@@ -39,13 +46,14 @@ def list_endpoints(user_id: str):
 
     return response.data
 
+
 def find_endpoint_by_token(agent_token: str):
-    token_hash = hashlib.sha256(agent_token.encode()).hexdigest()
+    token_hash = hashlib.sha256(agent_token.encode("utf-8")).hexdigest()
 
     response = (
         get_supabase_admin()
         .table("endpoints")
-        .select("*")
+        .select("id,user_id,name,status")
         .eq("agent_token_hash", token_hash)
         .limit(1)
         .execute()
@@ -57,7 +65,7 @@ def find_endpoint_by_token(agent_token: str):
     return response.data[0]
 
 
-def record_usb_event(endpoint_id: str, data):
+def record_usb_event(endpoint_id: str, data: USBEventCreate):
     response = (
         get_supabase_admin()
         .table("usb_events")
@@ -76,13 +84,16 @@ def record_usb_event(endpoint_id: str, data):
         .execute()
     )
 
+    if not response.data:
+        raise RuntimeError("USB event could not be stored")
+
     (
         get_supabase_admin()
         .table("endpoints")
         .update(
             {
                 "status": "online",
-                "last_seen": "now()",
+                "last_seen": datetime.now(timezone.utc).isoformat(),
             }
         )
         .eq("id", endpoint_id)

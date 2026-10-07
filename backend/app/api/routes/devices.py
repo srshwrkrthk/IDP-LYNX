@@ -1,11 +1,6 @@
-from fastapi import APIRouter, Depends, status
-
-from app.api.dependencies import get_current_user
-from app.schemas.device import EndpointCreate
-from app.services.device_service import list_endpoints, register_endpoint
-
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 
+from app.api.dependencies import get_current_user
 from app.schemas.device import EndpointCreate, USBEventCreate
 from app.services.device_service import (
     find_endpoint_by_token,
@@ -34,6 +29,12 @@ def create_endpoint(
         "warning": "Save this token now. It will not be shown again.",
     }
 
+
+@router.get("")
+def get_endpoints(current_user=Depends(get_current_user)):
+    return list_endpoints(str(current_user.id))
+
+
 @router.post("/agent/events", status_code=status.HTTP_201_CREATED)
 def receive_usb_event(
     data: USBEventCreate,
@@ -53,8 +54,3 @@ def receive_usb_event(
         "message": "USB event recorded",
         "event": event,
     }
-
-
-@router.get("")
-def get_endpoints(current_user=Depends(get_current_user)):
-    return list_endpoints(str(current_user.id))
