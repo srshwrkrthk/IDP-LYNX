@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LYNX Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <main class="card">
+        <h1>LYNX SOC Dashboard</h1>
+        <p id="user">Checking authentication...</p>
+
+        <section class="stats">
+            <div>
+                <strong>0</strong>
+                <span>Connected Devices</span>
+            </div>
+
+            <div>
+                <strong>0</strong>
+                <span>Active Alerts</span>
+            </div>
+
+            <div>
+                <strong>Safe</strong>
+                <span>Gateway Status</span>
+            </div>
+        </section>
+
+        <button id="logout">Logout</button>
+    </main>
+
+    <script>
+        const token = sessionStorage.getItem("access_token");
+
+        if (!token) {
+            window.location.href = "/";
+        }
+
+        async function loadUser() {
+            const response = await fetch("/auth/me", {
+                headers: {
+                    "Authorization": `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                sessionStorage.clear();
+                window.location.href = "/";
+                return;
+            }
+
+            const user = await response.json();
+            document.getElementById("user").textContent =
+                `Signed in as ${user.email}`;
+        }
+
+        document.getElementById("logout").addEventListener("click", () => {
+            sessionStorage.clear();
+            window.location.href = "/";
+        });
+
+        loadUser();
+    </script>
+</body>
+</html>
