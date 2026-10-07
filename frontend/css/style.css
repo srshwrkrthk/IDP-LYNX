@@ -72,3 +72,96 @@ button {
 #message {
     color: #ff8f8f;
 }
+
+.dashboard {
+    width: min(1100px, 92%);
+    margin: 40px auto;
+}
+
+.dashboard header,
+.section-title,
+.event-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.dashboard header button,
+.section-title button {
+    width: auto;
+}
+
+.dashboard .stats {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+.activity {
+    padding: 24px;
+    border: 1px solid #24445f;
+    border-radius: 16px;
+    background: #0d1c2c;
+}
+
+.section-title h2,
+.section-title p {
+    margin: 4px 0;
+}
+
+#events {
+    display: grid;
+    gap: 12px;
+    margin-top: 22px;
+}
+
+.event-card {
+    padding: 18px;
+    border: 1px solid #24445f;
+    border-radius: 10px;
+    background: #07111f;
+}
+
+.event-card p {
+    margin: 10px 0;
+}
+
+.event-card small,
+.reasons {
+    color: #a4bdcf;
+}
+
+.risk {
+    padding: 5px 9px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.risk.info,
+.risk.low {
+    color: #8ce99a;
+    background: #173d2a;
+}
+
+.risk.medium {
+    color: #ffd76a;
+    background: #493d16;
+}
+
+.risk.high,
+.risk.critical {
+    color: #ff9b9b;
+    background: #4b2028;
+}
+
+@media (max-width: 700px) {
+    .dashboard .stats {
+        grid-template-columns: 1fr;
+    }
+
+    .dashboard header,
+    .section-title {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}

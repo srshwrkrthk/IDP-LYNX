@@ -7,61 +7,174 @@
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <main class="card">
-        <h1>LYNX SOC Dashboard</h1>
-        <p id="user">Checking authentication...</p>
+    <main class="dashboard">
+        <header>
+            <div>
+                <h1>LYNX SOC Dashboard</h1>
+                <p id="user">Loading account...</p>
+            </div>
+
+            <button id="logout">Logout</button>
+        </header>
 
         <section class="stats">
             <div>
-                <strong>0</strong>
-                <span>Connected Devices</span>
+                <strong id="endpoint-count">—</strong>
+                <span>Online Endpoints</span>
             </div>
 
             <div>
-                <strong>0</strong>
-                <span>Active Alerts</span>
+                <strong id="alert-count">—</strong>
+                <span>High-Risk Events</span>
             </div>
 
             <div>
-                <strong>Safe</strong>
+                <strong id="gateway-status">Loading</strong>
                 <span>Gateway Status</span>
             </div>
         </section>
 
-        <button id="logout">Logout</button>
+        <section class="activity">
+            <div class="section-title">
+                <div>
+                    <h2>USB Activity</h2>
+                    <p>Recent device connections and risk assessments</p>
+                </div>
+
+                <button id="refresh">Refresh</button>
+            </div>
+
+            <div id="events">
+                <p>Loading events...</p>
+            </div>
+        </section>
     </main>
 
     <script>
         const token = sessionStorage.getItem("access_token");
 
         if (!token) {
-            window.location.href = "/";
+            window.location.replace("/");
         }
 
-        async function loadUser() {
-            const response = await fetch("/auth/me", {
+        async function authorizedFetch(url) {
+            const response = await fetch(url, {
                 headers: {
                     "Authorization": `Bearer ${token}`
                 }
             });
 
-            if (!response.ok) {
+            if (response.status === 401 || response.status === 403) {
                 sessionStorage.clear();
-                window.location.href = "/";
+                window.location.replace("/");
+                throw new Error("Session expired");
+            }
+
+            if (!response.ok) {
+                throw new Error(`Request failed: ${response.status}`);
+            }
+
+            return response.json();
+        }
+
+        function createEventCard(event) {
+            const card = document.createElement("article");
+            card.className = "event-card";
+
+            const top = document.createElement("div");
+            top.className = "event-top";
+
+            const name = document.createElement("strong");
+            name.textContent = event.device_name || "Unknown USB Device";
+
+            const badge = document.createElement("span");
+            badge.className = `risk ${event.risk_level}`;
+            badge.textContent =
+                `${event.risk_level.toUpperCase()} · ${event.risk_score}`;
+
+            top.append(name, badge);
+
+            const details = document.createElement("p");
+            details.textContent =
+                `${event.event_type} · ${event.endpoint_name} · ` +
+                `${event.vendor_id || "Unknown vendor"}:` +
+                `${event.product_id || "Unknown product"}`;
+
+            const reasons = document.createElement("p");
+            reasons.className = "reasons";
+            reasons.textContent = (event.risk_reasons || []).join(" • ");
+
+            const time = document.createElement("small");
+            time.textContent = new Date(event.created_at).toLocaleString();
+
+            card.append(top, details, reasons, time);
+            return card;
+        }
+
+        function renderEvents(events) {
+            const container = document.getElementById("events");
+            container.replaceChildren();
+
+            if (events.length === 0) {
+                const message = document.createElement("p");
+                message.textContent = "No USB activity recorded yet.";
+                container.appendChild(message);
                 return;
             }
 
-            const user = await response.json();
-            document.getElementById("user").textContent =
-                `Signed in as ${user.email}`;
+            events.forEach(event => {
+                container.appendChild(createEventCard(event));
+            });
         }
+
+        async function loadDashboard() {
+            try {
+                const [user, endpoints, activity] = await Promise.all([
+                    authorizedFetch("/auth/me"),
+                    authorizedFetch("/endpoints"),
+                    authorizedFetch("/events?limit=20")
+                ]);
+
+                document.getElementById("user").textContent =
+                    `Signed in as ${user.email}`;
+
+                const onlineEndpoints = endpoints.filter(
+                    endpoint => endpoint.status === "online"
+                ).length;
+
+                const alerts = activity.events.filter(
+                    event =>
+                        event.risk_level === "high" ||
+                        event.risk_level === "critical"
+                ).length;
+
+                document.getElementById("endpoint-count").textContent =
+                    onlineEndpoints;
+
+                document.getElementById("alert-count").textContent =
+                    alerts;
+
+                document.getElementById("gateway-status").textContent =
+                    alerts > 0 ? "Attention" : "Monitoring";
+
+                renderEvents(activity.events);
+            } catch (error) {
+                document.getElementById("events").textContent =
+                    `Unable to load dashboard: ${error.message}`;
+            }
+        }
+
+        document.getElementById("refresh").addEventListener(
+            "click",
+            loadDashboard
+        );
 
         document.getElementById("logout").addEventListener("click", () => {
             sessionStorage.clear();
-            window.location.href = "/";
+            window.location.replace("/");
         });
 
-        loadUser();
+        loadDashboard();
     </script>
 </body>
 </html>
