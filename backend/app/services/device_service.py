@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from app.database import get_supabase_admin
 from app.schemas.device import EndpointCreate, USBEventCreate
 
+from app.services.detection_service import assess_usb_event
 
 def register_endpoint(user_id: str, data: EndpointCreate):
     agent_token = secrets.token_urlsafe(32)
@@ -66,6 +67,8 @@ def find_endpoint_by_token(agent_token: str):
 
 
 def record_usb_event(endpoint_id: str, data: USBEventCreate):
+    assessment = assess_usb_event(data)
+
     response = (
         get_supabase_admin()
         .table("usb_events")
@@ -79,6 +82,9 @@ def record_usb_event(endpoint_id: str, data: USBEventCreate):
                 "vendor_id": data.vendor_id,
                 "product_id": data.product_id,
                 "serial_number": data.serial_number,
+                "risk_score": assessment["score"],
+                "risk_level": assessment["level"],
+                "risk_reasons": assessment["reasons"],
             }
         )
         .execute()

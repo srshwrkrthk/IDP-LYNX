@@ -33,6 +33,11 @@ dev = [
     "ruff>=0.6"
 ]
 
+windows-agent = [
+    "wmi>=1.5.1",
+    "pywin32>=306"
+]
+
 [tool.setuptools.packages.find]
 where = ["backend"]
 include = ["app*"]
