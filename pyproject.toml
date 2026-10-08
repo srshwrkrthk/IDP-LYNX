@@ -35,7 +35,8 @@ dev = [
 
 windows-agent = [
     "wmi>=1.5.1",
-    "pywin32>=306"
+    "pywin32>=306",
+    "pynput>=1.7.6"
 ]
 
 [tool.setuptools.packages.find]

@@ -47,3 +47,49 @@ def list_user_events(user_id: str, limit: int = 50):
         )
 
     return events
+
+def list_user_hid_telemetry(user_id: str, limit: int = 50):
+    client = get_supabase_admin()
+
+    endpoint_response = (
+        client
+        .table("endpoints")
+        .select("id,name")
+        .eq("user_id", user_id)
+        .execute()
+    )
+
+    endpoints = endpoint_response.data or []
+
+    if not endpoints:
+        return []
+
+    endpoint_names = {
+        endpoint["id"]: endpoint["name"]
+        for endpoint in endpoints
+    }
+
+    response = (
+        client
+        .table("hid_telemetry")
+        .select(
+            "id,endpoint_id,device_id,observation_window_ms,"
+            "key_count,first_key_delay_ms,average_interval_ms,"
+            "interval_stddev_ms,max_keys_per_second,"
+            "risk_score,risk_level,risk_reasons,created_at"
+        )
+        .in_("endpoint_id", list(endpoint_names))
+        .order("created_at", desc=True)
+        .limit(limit)
+        .execute()
+    )
+
+    telemetry = response.data or []
+
+    for item in telemetry:
+        item["endpoint_name"] = endpoint_names.get(
+            item["endpoint_id"],
+            "Unknown endpoint",
+        )
+
+    return telemetry

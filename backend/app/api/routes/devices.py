@@ -1,14 +1,18 @@
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 
 from app.api.dependencies import get_current_user
-from app.schemas.device import EndpointCreate, USBEventCreate
+from app.schemas.device import (
+    EndpointCreate,
+    HIDTelemetryCreate,
+    USBEventCreate,
+)
 from app.services.device_service import (
     find_endpoint_by_token,
     list_endpoints,
     record_usb_event,
     register_endpoint,
 )
-
+from app.services.hid_service import record_hid_telemetry
 router = APIRouter(prefix="/endpoints", tags=["Endpoints"])
 
 
@@ -53,4 +57,30 @@ def receive_usb_event(
     return {
         "message": "USB event recorded",
         "event": event,
+    }
+
+@router.post(
+    "/agent/hid-telemetry",
+    status_code=status.HTTP_201_CREATED,
+)
+def receive_hid_telemetry(
+    data: HIDTelemetryCreate,
+    agent_token: str = Header(alias="X-Agent-Token"),
+):
+    endpoint = find_endpoint_by_token(agent_token)
+
+    if endpoint is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid agent token",
+        )
+
+    telemetry = record_hid_telemetry(
+        endpoint_id=endpoint["id"],
+        data=data,
+    )
+
+    return {
+        "message": "HID telemetry recorded",
+        "telemetry": telemetry,
     }

@@ -7,6 +7,18 @@
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+    <section class="activity hid-activity">
+    <div class="section-title">
+        <div>
+            <h2>HID Behaviour Analysis</h2>
+            <p>Privacy-safe keyboard timing and automation detection</p>
+        </div>
+    </div>
+
+    <div id="hid-events">
+        <p>Loading HID analysis...</p>
+    </div>
+</section>
     <main class="dashboard">
         <header>
             <div>
@@ -126,6 +138,64 @@
                 container.appendChild(createEventCard(event));
             });
         }
+        function createHIDCard(event) {
+    const card = document.createElement("article");
+    card.className = "event-card";
+
+    const top = document.createElement("div");
+    top.className = "event-top";
+
+    const name = document.createElement("strong");
+    name.textContent = `HID Analysis · ${event.device_id}`;
+
+    const badge = document.createElement("span");
+    badge.className = `risk ${event.risk_level}`;
+    badge.textContent =
+        `${event.risk_level.toUpperCase()} · ${event.risk_score}`;
+
+    top.append(name, badge);
+
+    const metrics = document.createElement("p");
+    metrics.textContent =
+        `${event.key_count} key events · ` +
+        `${event.max_keys_per_second} keys/sec · ` +
+        `${event.observation_window_ms} ms window`;
+
+    const timing = document.createElement("p");
+    timing.textContent =
+        `First input: ${event.first_key_delay_ms ?? "None"} ms · ` +
+        `Average interval: ` +
+        `${event.average_interval_ms?.toFixed(2) ?? "N/A"} ms`;
+
+    const reasons = document.createElement("p");
+    reasons.className = "reasons";
+    reasons.textContent = (event.risk_reasons || []).join(" • ");
+
+    const footer = document.createElement("small");
+    footer.textContent =
+        `${event.endpoint_name} · ` +
+        new Date(event.created_at).toLocaleString();
+
+    card.append(top, metrics, timing, reasons, footer);
+    return card;
+}
+
+
+function renderHIDEvents(events) {
+    const container = document.getElementById("hid-events");
+    container.replaceChildren();
+
+    if (events.length === 0) {
+        const message = document.createElement("p");
+        message.textContent = "No HID analysis recorded yet.";
+        container.appendChild(message);
+        return;
+    }
+
+    events.forEach(event => {
+        container.appendChild(createHIDCard(event));
+    });
+}
 
         async function loadDashboard() {
             try {
