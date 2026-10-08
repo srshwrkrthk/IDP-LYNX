@@ -7,18 +7,6 @@
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <section class="activity hid-activity">
-    <div class="section-title">
-        <div>
-            <h2>HID Behaviour Analysis</h2>
-            <p>Privacy-safe keyboard timing and automation detection</p>
-        </div>
-    </div>
-
-    <div id="hid-events">
-        <p>Loading HID analysis...</p>
-    </div>
-</section>
     <main class="dashboard">
         <header>
             <div>
@@ -57,7 +45,22 @@
             </div>
 
             <div id="events">
-                <p>Loading events...</p>
+                <p>Loading USB activity...</p>
+            </div>
+        </section>
+
+        <section class="activity hid-activity">
+            <div class="section-title">
+                <div>
+                    <h2>HID Behaviour Analysis</h2>
+                    <p>
+                        Privacy-safe keyboard timing and automation detection
+                    </p>
+                </div>
+            </div>
+
+            <div id="hid-events">
+                <p>Loading HID analysis...</p>
             </div>
         </section>
     </main>
@@ -83,13 +86,27 @@
             }
 
             if (!response.ok) {
-                throw new Error(`Request failed: ${response.status}`);
+                throw new Error(
+                    `Request to ${url} failed with status ${response.status}`
+                );
             }
 
             return response.json();
         }
 
-        function createEventCard(event) {
+        function createRiskBadge(level, score) {
+            const badge = document.createElement("span");
+
+            const safeLevel = level || "info";
+
+            badge.className = `risk ${safeLevel}`;
+            badge.textContent =
+                `${safeLevel.toUpperCase()} · ${score ?? 0}`;
+
+            return badge;
+        }
+
+        function createUSBEventCard(event) {
             const card = document.createElement("article");
             card.className = "event-card";
 
@@ -97,112 +114,187 @@
             top.className = "event-top";
 
             const name = document.createElement("strong");
-            name.textContent = event.device_name || "Unknown USB Device";
+            name.textContent =
+                event.device_name || "Unknown USB Device";
 
-            const badge = document.createElement("span");
-            badge.className = `risk ${event.risk_level}`;
-            badge.textContent =
-                `${event.risk_level.toUpperCase()} · ${event.risk_score}`;
-
-            top.append(name, badge);
+            top.append(
+                name,
+                createRiskBadge(
+                    event.risk_level,
+                    event.risk_score
+                )
+            );
 
             const details = document.createElement("p");
             details.textContent =
-                `${event.event_type} · ${event.endpoint_name} · ` +
+                `${event.event_type} · ` +
+                `${event.endpoint_name} · ` +
                 `${event.vendor_id || "Unknown vendor"}:` +
                 `${event.product_id || "Unknown product"}`;
 
+            const deviceClass = document.createElement("p");
+            deviceClass.textContent =
+                `Interfaces: ${event.device_class || "Unknown"}`;
+
             const reasons = document.createElement("p");
             reasons.className = "reasons";
-            reasons.textContent = (event.risk_reasons || []).join(" • ");
+            reasons.textContent =
+                (event.risk_reasons || []).join(" • ");
 
             const time = document.createElement("small");
-            time.textContent = new Date(event.created_at).toLocaleString();
+            time.textContent =
+                new Date(event.created_at).toLocaleString();
 
-            card.append(top, details, reasons, time);
+            card.append(
+                top,
+                details,
+                deviceClass,
+                reasons,
+                time
+            );
+
             return card;
         }
 
-        function renderEvents(events) {
+        function renderUSBEvents(events) {
             const container = document.getElementById("events");
             container.replaceChildren();
 
-            if (events.length === 0) {
+            if (!events || events.length === 0) {
                 const message = document.createElement("p");
-                message.textContent = "No USB activity recorded yet.";
+                message.textContent =
+                    "No USB activity recorded yet.";
+
                 container.appendChild(message);
                 return;
             }
 
             events.forEach(event => {
-                container.appendChild(createEventCard(event));
+                container.appendChild(
+                    createUSBEventCard(event)
+                );
             });
         }
+
         function createHIDCard(event) {
-    const card = document.createElement("article");
-    card.className = "event-card";
+            const card = document.createElement("article");
+            card.className = "event-card";
 
-    const top = document.createElement("div");
-    top.className = "event-top";
+            const top = document.createElement("div");
+            top.className = "event-top";
 
-    const name = document.createElement("strong");
-    name.textContent = `HID Analysis · ${event.device_id}`;
+            const name = document.createElement("strong");
+            name.textContent =
+                `HID Analysis · ${event.device_id}`;
 
-    const badge = document.createElement("span");
-    badge.className = `risk ${event.risk_level}`;
-    badge.textContent =
-        `${event.risk_level.toUpperCase()} · ${event.risk_score}`;
+            top.append(
+                name,
+                createRiskBadge(
+                    event.risk_level,
+                    event.risk_score
+                )
+            );
 
-    top.append(name, badge);
+            const maximumRate =
+                event.max_keys_per_second == null
+                    ? 0
+                    : Number(event.max_keys_per_second);
 
-    const metrics = document.createElement("p");
-    metrics.textContent =
-        `${event.key_count} key events · ` +
-        `${event.max_keys_per_second} keys/sec · ` +
-        `${event.observation_window_ms} ms window`;
+            const averageInterval =
+                event.average_interval_ms == null
+                    ? "N/A"
+                    : Number(
+                        event.average_interval_ms
+                    ).toFixed(2);
 
-    const timing = document.createElement("p");
-    timing.textContent =
-        `First input: ${event.first_key_delay_ms ?? "None"} ms · ` +
-        `Average interval: ` +
-        `${event.average_interval_ms?.toFixed(2) ?? "N/A"} ms`;
+            const intervalDeviation =
+                event.interval_stddev_ms == null
+                    ? "N/A"
+                    : Number(
+                        event.interval_stddev_ms
+                    ).toFixed(2);
 
-    const reasons = document.createElement("p");
-    reasons.className = "reasons";
-    reasons.textContent = (event.risk_reasons || []).join(" • ");
+            const metrics = document.createElement("p");
+            metrics.textContent =
+                `${event.key_count} key events · ` +
+                `${maximumRate} keys/sec · ` +
+                `${event.observation_window_ms} ms window`;
 
-    const footer = document.createElement("small");
-    footer.textContent =
-        `${event.endpoint_name} · ` +
-        new Date(event.created_at).toLocaleString();
+            const timing = document.createElement("p");
+            timing.textContent =
+                `First input: ` +
+                `${event.first_key_delay_ms ?? "None"} ms · ` +
+                `Average interval: ${averageInterval} ms · ` +
+                `Timing deviation: ${intervalDeviation} ms`;
 
-    card.append(top, metrics, timing, reasons, footer);
-    return card;
-}
+            const reasons = document.createElement("p");
+            reasons.className = "reasons";
+            reasons.textContent =
+                (event.risk_reasons || []).join(" • ");
 
+            const footer = document.createElement("small");
+            footer.textContent =
+                `${event.endpoint_name} · ` +
+                new Date(event.created_at).toLocaleString();
 
-function renderHIDEvents(events) {
-    const container = document.getElementById("hid-events");
-    container.replaceChildren();
+            card.append(
+                top,
+                metrics,
+                timing,
+                reasons,
+                footer
+            );
 
-    if (events.length === 0) {
-        const message = document.createElement("p");
-        message.textContent = "No HID analysis recorded yet.";
-        container.appendChild(message);
-        return;
-    }
+            return card;
+        }
 
-    events.forEach(event => {
-        container.appendChild(createHIDCard(event));
-    });
-}
+        function renderHIDEvents(events) {
+            const container =
+                document.getElementById("hid-events");
+
+            container.replaceChildren();
+
+            if (!events || events.length === 0) {
+                const message = document.createElement("p");
+                message.textContent =
+                    "No HID analysis recorded yet.";
+
+                container.appendChild(message);
+                return;
+            }
+
+            events.forEach(event => {
+                container.appendChild(
+                    createHIDCard(event)
+                );
+            });
+        }
+
+        function countHighRisk(events) {
+            return events.filter(event =>
+                event.risk_level === "high" ||
+                event.risk_level === "critical"
+            ).length;
+        }
 
         async function loadDashboard() {
+            const refreshButton =
+                document.getElementById("refresh");
+
+            refreshButton.disabled = true;
+            refreshButton.textContent = "Refreshing...";
+
             try {
-                const [user, endpoints, activity] = await Promise.all([
+                const [
+                    user,
+                    endpoints,
+                    usbActivity,
+                    hidActivity
+                ] = await Promise.all([
                     authorizedFetch("/auth/me"),
                     authorizedFetch("/endpoints"),
-                    authorizedFetch("/events?limit=20")
+                    authorizedFetch("/events?limit=20"),
+                    authorizedFetch("/events/hid?limit=20")
                 ]);
 
                 document.getElementById("user").textContent =
@@ -212,34 +304,55 @@ function renderHIDEvents(events) {
                     endpoint => endpoint.status === "online"
                 ).length;
 
-                const alerts = activity.events.filter(
-                    event =>
-                        event.risk_level === "high" ||
-                        event.risk_level === "critical"
-                ).length;
+                const alertCount =
+                    countHighRisk(usbActivity.events) +
+                    countHighRisk(hidActivity.events);
 
-                document.getElementById("endpoint-count").textContent =
-                    onlineEndpoints;
+                document.getElementById(
+                    "endpoint-count"
+                ).textContent = onlineEndpoints;
 
-                document.getElementById("alert-count").textContent =
-                    alerts;
+                document.getElementById(
+                    "alert-count"
+                ).textContent = alertCount;
 
-                document.getElementById("gateway-status").textContent =
-                    alerts > 0 ? "Attention" : "Monitoring";
+                document.getElementById(
+                    "gateway-status"
+                ).textContent =
+                    alertCount > 0
+                        ? "Attention"
+                        : "Monitoring";
 
-                renderEvents(activity.events);
+                renderUSBEvents(usbActivity.events);
+                renderHIDEvents(hidActivity.events);
             } catch (error) {
                 document.getElementById("events").textContent =
-                    `Unable to load dashboard: ${error.message}`;
+                    `Unable to load USB activity: ${error.message}`;
+
+                document.getElementById(
+                    "hid-events"
+                ).textContent =
+                    `Unable to load HID analysis: ${error.message}`;
+
+                document.getElementById(
+                    "gateway-status"
+                ).textContent = "Unavailable";
+            } finally {
+                refreshButton.disabled = false;
+                refreshButton.textContent = "Refresh";
             }
         }
 
-        document.getElementById("refresh").addEventListener(
+        document.getElementById(
+            "refresh"
+        ).addEventListener(
             "click",
             loadDashboard
         );
 
-        document.getElementById("logout").addEventListener("click", () => {
+        document.getElementById(
+            "logout"
+        ).addEventListener("click", () => {
             sessionStorage.clear();
             window.location.replace("/");
         });
